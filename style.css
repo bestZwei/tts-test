@@ -1,6 +1,6 @@
 body {
-    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(120deg, #e0f7fa 0%, #ffffff 100%);
+    font-family: 'Arial', sans-serif;
     color: #333;
     margin: 0;
     padding: 0;
@@ -27,12 +27,11 @@ body {
 }
 
 .card {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
+    background: #ffffff;
     border: none;
-    border-radius: 20px;
-    box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s, box-shadow 0.3s;
     width: 100%;
     max-width: 500px;
     margin-bottom: 30px;
@@ -40,12 +39,16 @@ body {
 
 .card:hover {
     transform: translateY(-5px);
-    box-shadow: 0 12px 40px rgba(31, 38, 135, 0.25);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
 }
 
 .card-header {
-    background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
-    padding: 25px;
+    background: linear-gradient(to right, #42a5f5, #478ed1);
+    color: white;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+    padding: 10px 15px;
     border-bottom: none;
 }
 
@@ -166,17 +169,17 @@ button:hover {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 15px;
-    padding: 15px 20px;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    border-radius: 15px;
-    background: rgba(255, 255, 255, 0.8);
-    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+    margin-top: 10px;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background: #f8f9fa;
+    transition: background-color 0.3s, box-shadow 0.3s;
 }
 
 .history-item:hover {
     background-color: #f1f1f1;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .history-item button {
@@ -194,13 +197,14 @@ button:hover {
 }
 
 footer {
-    padding: 20px;
-    background: linear-gradient(to right, #6a11cb, #2575fc);
+    padding: 15px 20px;
+    background: linear-gradient(to right, #42a5f5, #478ed1);
     color: white;
     width: 100%;
     text-align: center;
-    border-top-left-radius: 15px;
-    border-top-right-radius: 15px;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    margin-top: auto;
 }
 
 footer a {
