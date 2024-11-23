@@ -103,9 +103,6 @@ $(document).ready(function () {
                 alert('请稍候再试，每5秒只能请求一次。');
             }
         });
-
-        // 暂时禁用 Deno API 选项
-        $('#api option[value="deno-api"]').prop('disabled', true).text('Deno API (暂时不可用)');
     });
 });
 
