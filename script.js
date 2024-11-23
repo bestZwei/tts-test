@@ -1,127 +1,86 @@
 let apiConfig;
 let lastRequestTime = 0;
 
-function getLanguageList(speakers) {
-    const languages = new Set();
-    for (const key in speakers) {
-        const lang = key.split('-').slice(0, 2).join('-');
-        languages.add(lang);
-    }
-    return Array.from(languages).sort();
-}
-
-function getLanguageName(code) {
-    const languageNames = {
-        'zh-CN': '中文（普通话）',
-        'zh-HK': '中文（粤语）',
-        'zh-TW': '中文（台湾）',
-        'en-US': '英语（美国）',
-        'en-GB': '英语（英国）',
-        'ja-JP': '日语',
-        'ko-KR': '韩语',
-        'fr-FR': '法语（法国）',
-        'de-DE': '德语（德国）',
-        'ru-RU': '俄语',
-        'es-ES': '西班牙语（西班牙）',
-        'it-IT': '意大利语',
-        'default': '未知语言'
-    };
-    return languageNames[code] || `${code} (${languageNames['default']})`;
-}
-
-function updateLanguageOptions(apiName) {
-    const speakers = apiConfig[apiName].speakers;
-    const languages = getLanguageList(speakers);
-    const $language = $('#language');
-    
-    $language.empty();
-    $language.append('<option value="">请选择语言</option>');
-    
-    languages.forEach(lang => {
-        $language.append(`<option value="${lang}">${getLanguageName(lang)}</option>`);
+function loadSpeakers() {
+    return $.ajax({
+        url: 'speakers.json',
+        method: 'GET',
+        dataType: 'json',
+        success: function(data) {
+            apiConfig = data;
+            updateSpeakerOptions('workers-api');
+        },
+        error: function(jqXHR, textStatus, errorThrown) {
+            console.error(`加载讲述者失败：${textStatus} - ${errorThrown}`);
+        }
     });
-    
-    $('#speaker').empty().append('<option value="">请先选择语言</option>');
 }
 
-function updateSpeakerOptions(apiName, language) {
+function updateSpeakerOptions(apiName) {
     const speakers = apiConfig[apiName].speakers;
-    const $speaker = $('#speaker');
-    
-    $speaker.empty();
-    $speaker.append('<option value="">请选择讲述人</option>');
-    
-    Object.entries(speakers)
-        .filter(([key]) => key.startsWith(language))
-        .sort((a, b) => a[1].localeCompare(b[1]))
-        .forEach(([key, value]) => {
-            $speaker.append(`<option value="${key}">${value}</option>`);
+    const speakerSelect = $('#speaker');
+    speakerSelect.empty();
+    Object.entries(speakers).forEach(([key, value]) => {
+        speakerSelect.append(new Option(value, key));
+    });
+}
+
+function updateSliderLabel(sliderId, labelId) {
+    const slider = $(`#${sliderId}`);
+    const label = $(`#${labelId}`);
+    label.text(slider.val());
+    slider.on('input', function () {
+        label.text(this.value);
+    });
+}
+
+$(document).ready(function () {
+    loadSpeakers().then(() => {
+        $('[data-toggle="tooltip"]').tooltip();
+
+        $('#api').on('change', function () {
+            const apiName = $(this).val();
+            updateSpeakerOptions(apiName);
+            
+            // 重置滑块值
+            $('#rate').val(0);
+            $('#pitch').val(0);
+            updateSliderLabel('rate', 'rateValue');
+            updateSliderLabel('pitch', 'pitchValue');
+            
+            // 显示 API 相关提示
+            const tips = {
+                'workers-api': '使用 Workers API，支持简单参数',
+                'deno-api': '使用 Deno API，支持完整参数'
+            };
+            
+            $('#apiTips').text(tips[apiName] || '');
         });
-}
 
-function initializeEventListeners() {
-    $('#api').on('change', function() {
-        const apiName = $(this).val();
-        if (apiName) {
-            updateLanguageOptions(apiName);
-        } else {
-            $('#language').empty().append('<option value="">请先选择API</option>');
-            $('#speaker').empty().append('<option value="">请先选择语言</option>');
-        }
+        updateSliderLabel('rate', 'rateValue');
+        updateSliderLabel('pitch', 'pitchValue');
+
+        $('#text').on('input', function () {
+            $('#charCount').text(`字符数统计：${this.value.length}/3600`);
+        });
+
+        $('#text2voice-form').on('submit', function (event) {
+            event.preventDefault();
+            if (canMakeRequest()) {
+                generateVoice(false);
+            } else {
+                alert('请稍候再试，每5秒只能请求一次。');
+            }
+        });
+
+        $('#previewButton').on('click', function () {
+            if (canMakeRequest()) {
+                generateVoice(true);
+            } else {
+                alert('请稍候再试，每5秒只能请求一次。');
+            }
+        });
     });
-
-    $('#language').on('change', function() {
-        const apiName = $('#api').val();
-        const language = $(this).val();
-        if (language) {
-            updateSpeakerOptions(apiName, language);
-        } else {
-            $('#speaker').empty().append('<option value="">请先选择语言</option>');
-        }
-    });
-
-    updateSliderLabel('rate', 'rateValue');
-    updateSliderLabel('pitch', 'pitchValue');
-
-    $('#text').on('input', function () {
-        $('#charCount').text(`字符数统计：${this.value.length}/3600`);
-    });
-
-    $('#text2voice-form').on('submit', function (event) {
-        event.preventDefault();
-        if (canMakeRequest()) {
-            generateVoice(false);
-        } else {
-            alert('请稍候再试，每5秒只能请求一次。');
-        }
-    });
-
-    $('#previewButton').on('click', function () {
-        if (canMakeRequest()) {
-            generateVoice(true);
-        } else {
-            alert('请稍候再试，每5秒只能请求一次。');
-        }
-    });
-}
-
-async function initialize() {
-    try {
-        const response = await fetch('speakers.json');
-        apiConfig = await response.json();
-        
-        const defaultApi = 'workers-api';
-        $('#api').val(defaultApi).trigger('change');
-        
-    } catch (error) {
-        console.error('Failed to load speakers:', error);
-        alert('加载讲述人列表失败');
-    }
-}
-
-$(document).ready(function() {
-    initialize();
-    initializeEventListeners();
 });
 
 function canMakeRequest() {
@@ -175,18 +134,31 @@ function makeRequest(url, isPreview, text) {
     $('#generateButton').prop('disabled', true);
     $('#previewButton').prop('disabled', true);
 
-    $.ajax({
-        url: url,
-        method: 'GET',
-        headers: {
-            'x-api-key': '@ak47'
-        },
-        xhrFields: {
-            responseType: 'blob'
-        },
-        success: (blob) => handleSuccess(blob, isPreview, text),
-        error: handleError
-    });
+    fetch(url)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.blob();
+        })
+        .then(blob => {
+            const audioURL = URL.createObjectURL(blob);
+            $('#result').show();
+            $('#audio').attr('src', audioURL);
+            
+            if (!isPreview) {
+                addToHistory(text, audioURL);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('生成失败：' + error.message);
+        })
+        .finally(() => {
+            $('#loading').hide();
+            $('#generateButton').prop('disabled', false);
+            $('#previewButton').prop('disabled', false);
+        });
 }
 
 function handleSuccess(blob, isPreview, text) {
@@ -216,11 +188,22 @@ function handleSuccess(blob, isPreview, text) {
 }
 
 function handleError(jqXHR, textStatus, errorThrown) {
-    console.error(`请求失败：${textStatus} - ${errorThrown}`);
-    alert(`请求失败：${textStatus} - ${errorThrown}`);
-    $('#loading').hide();
-    $('#generateButton').prop('disabled', false);
-    $('#previewButton').prop('disabled', false);
+    console.error('请求失败:', {
+        status: jqXHR?.status,
+        textStatus: textStatus,
+        error: errorThrown
+    });
+    
+    let errorMessage = '请求失败';
+    if (jqXHR?.status === 401) {
+        errorMessage = '认证失败，请检查认证信息';
+    } else if (jqXHR?.status === 429) {
+        errorMessage = '请求过于频繁，请稍后再试';
+    } else {
+        errorMessage = `${textStatus}: ${errorThrown}`;
+    }
+    
+    alert(errorMessage);
 }
 
 function addHistoryItem(timestamp, text, audioURL) {
@@ -255,3 +238,23 @@ function clearHistory() {
     $('#historyItems').empty();
     alert("历史记录已清除！");
 }
+
+// 添加错误处理
+$.ajaxSetup({
+    timeout: 30000,  // 30秒超时
+    error: function(xhr, status, error) {
+        $('#loading').hide();
+        $('#generateButton').prop('disabled', false);
+        $('#previewButton').prop('disabled', false);
+        
+        let message = '请求失败';
+        if (status === 'timeout') {
+            message = '请求超时，请重试';
+        } else if (xhr.status === 429) {
+            message = '请求过于频繁，请稍后再试';
+        } else if (xhr.status === 401) {
+            message = '认证失败';
+        }
+        alert(message);
+    }
+});

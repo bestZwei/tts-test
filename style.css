@@ -144,24 +144,3 @@ footer a:hover {
         max-height: 300px;  
     }
 }
-
-/* 新增：选择器样式优化 */
-.form-group select {
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-/* 新增：选择器hover效果 */
-.form-group select:hover {
-    cursor: pointer;
-    border-color: #80bdff;
-    outline: 0;
-    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
-}
-
-/* 新增：禁用状态样式 */
-.form-group select:disabled {
-    background-color: #e9ecef;
-    cursor: not-allowed;
-}
