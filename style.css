@@ -147,7 +147,7 @@ label {
 }
 
 .history-container {
-    max-height: 550px;
+    max-height: 650px;
     overflow-y: auto;
     padding: 20px;
     scrollbar-width: auto;
