@@ -7,7 +7,7 @@ const API_CONFIG = {
         url: 'https://worker-tts.api.zwei.de.eu.org/tts'
     },
     'deno-api': {
-        url: 'https://deno-tts.api.zwei.de.eu.org/tts'
+        url: 'https://tts-zwei.deno.dev/tts'
     }
 };
 
