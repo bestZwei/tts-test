@@ -7,7 +7,7 @@ const API_CONFIG = {
         url: 'https://worker-tts.api.zwei.de.eu.org/tts'
     },
     'deno-api': {
-        url: 'https://tts-zwei.deno.dev/tts'
+        url: 'https://deno-tts.api.zwei.de.eu.org/tts'
     }
 };
 
@@ -261,15 +261,23 @@ function addHistoryItem(timestamp, text, audioURL) {
         oldestItem.remove();
     }
     const historyItem = $(`
-        <div class="history-item">
-            <span>${timestamp} - ${text}</span>
-            <div>
-                <button class="btn btn-secondary" onclick="playAudio('${audioURL}')">播放</button>
-                <button class="btn btn-info" onclick="downloadAudio('${audioURL}')">下载</button>
+        <div class="history-item" style="opacity: 0">
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="text-truncate">${timestamp} - ${text}</span>
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-outline-primary" onclick="playAudio('${audioURL}')">
+                        <i class="fas fa-play"></i> 播放
+                    </button>
+                    <button class="btn btn-sm btn-outline-success" onclick="downloadAudio('${audioURL}')">
+                        <i class="fas fa-download"></i> 下载
+                    </button>
+                </div>
             </div>
         </div>
     `);
-    historyItems.append(historyItem);
+    
+    $('#historyItems').prepend(historyItem);
+    setTimeout(() => historyItem.animate({ opacity: 1 }, 300), 50);
 }
 
 function playAudio(audioURL) {
@@ -348,3 +356,23 @@ window.addEventListener('beforeunload', function() {
 const updateCharCount = _.debounce(function(length) {
     $('#charCount').text(`字符数统计：${length}/3600`);
 }, 300);
+
+// 优化音频播放器外观
+function initializeAudioPlayer() {
+    const audio = document.getElementById('audio');
+    audio.style.borderRadius = '12px';
+    audio.style.width = '100%';
+    audio.style.marginTop = '20px';
+}
+
+// 添加加载动画
+function showLoading() {
+    $('#loading').html(`
+        <div class="spinner">
+            <div class="bounce1"></div>
+            <div class="bounce2"></div>
+            <div class="bounce3"></div>
+        </div>
+        <p>正在生成语音...</p>
+    `).show();
+}

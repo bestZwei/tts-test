@@ -100,8 +100,8 @@ async function handleRequest(req: Request): Promise<Response> {
 async function handleTTSRequest(url: URL): Promise<Response> {
   const text = url.searchParams.get("text");
   const voice = url.searchParams.get("voice");
-  const rate = Number(url.searchParams.get("rate") || "0");
-  const pitch = Number(url.searchParams.get("pitch") || "0");
+  const rate = Number(url.searchParams.get("rate") || "0") / 100;
+  const pitch = Number(url.searchParams.get("pitch") || "0") / 100;
   const format = url.searchParams.get("format") || "audio/mpeg";
   const download = url.searchParams.get("download") === "true";
 
