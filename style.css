@@ -54,6 +54,7 @@ body {
 }
 
 .card-header h2 {
+    color: #ffffff;
     margin: 0;
     font-size: 1.6rem;
     font-weight: 500;
@@ -234,4 +235,16 @@ footer a:hover {
     .container-fluid {
         padding: 15px;
     }
+}
+
+.btn-preview {
+    background: linear-gradient(135deg, #7eb9e0, #5b9dcc);
+    color: #ffffff;
+    border: none;
+}
+
+.btn-preview:hover {
+    background: linear-gradient(135deg, #6ea8cf, #4a8cbb);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
