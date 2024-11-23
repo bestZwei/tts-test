@@ -17,55 +17,52 @@
 </head>
 <body>
 
-<div class="container-fluid d-flex flex-column justify-content-center align-items-center mt-5" style="min-height: 90vh;">
+<div class="container-fluid d-flex flex-column justify-content-center align-items-center mt-5">
     <div class="row w-100 justify-content-center">
         <!-- 表单容器 -->
-        <div class="col-md-8 col-lg-6 mb-3">
-            <div class="card shadow-sm h-100">
-                <div class="card-header text-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow-sm">
+                <div class="card-header">
                     <h2>文本转语音</h2>
                 </div>
                 <div class="card-body">
                     <form id="text2voice-form">
-                        <div class="form-row">
-                            <!-- API选择 -->
-                            <div class="form-group col-md-6">
-                                <label for="api">选择API：</label>
-                                <select class="form-control" id="api" required>
-                                    <option value="workers-api">Workers API</option>
-                                    <option value="deno-api">Deno API</option>
-                                </select>
-                            </div>
-                            <!-- 选择讲述人 -->
-                            <div class="form-group col-md-6">
-                                <label for="speaker">选择讲述人:</label>
-                                <select class="form-control" id="speaker" required></select>
-                            </div>
+                        <div class="form-group mb-4">
+                            <label for="api">选择API：</label>
+                            <select class="form-control" id="api" required>
+                                <option value="workers-api">Workers API</option>
+                                <option value="deno-api">Deno API</option>
+                            </select>
                         </div>
-                        <div id="commonParams">
-                            <div class="form-group d-flex justify-content-between">
-                                <label for="text">输入文本:</label>
+                        <div class="form-group mb-4">
+                            <label for="speaker">选择讲述人:</label>
+                            <select class="form-control" id="speaker" required></select>
+                        </div>
+                        <div class="form-group mb-4">
+                            <label for="text">输入文本:</label>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
                                 <span id="charCount">字符数统计：0/3600</span>
+                                <small class="text-muted">最多3600字</small>
                             </div>
-                            <textarea class="form-control" id="text" rows="3" required maxlength="3600"></textarea>
+                            <textarea class="form-control" id="text" rows="4" required maxlength="3600" placeholder="请输入要转换的文本..."></textarea>
                         </div>
-                        <div id="voiceapiParams">
-                            <div class="form-group">
-                                <label for="rate">语速: <span id="rateValue">0</span></label>
-                                <input type="range" class="form-control-range" id="rate" name="rate" min="-100" max="100" value="0">
-                            </div>
-                            <div class="form-group">
-                                <label for="pitch">语调: <span id="pitchValue">0</span></label>
-                                <input type="range" class="form-control-range" id="pitch" name="pitch" min="-100" max="100" value="0">
-                            </div>
+                        <div class="form-group mb-4">
+                            <label for="rate">语速: <span id="rateValue">0</span></label>
+                            <input type="range" class="form-control-range" id="rate" name="rate" min="-100" max="100" value="0">
                         </div>
-                        <button type="button" class="btn btn-info btn-block mb-3" id="previewButton">试听前20个字</button>
-                        <button type="submit" class="btn btn-primary btn-block" id="generateButton">生成语音</button>
+                        <div class="form-group mb-4">
+                            <label for="pitch">语调: <span id="pitchValue">0</span></label>
+                            <input type="range" class="form-control-range" id="pitch" name="pitch" min="-100" max="100" value="0">
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="button" class="btn btn-info" id="previewButton">试听前20个字</button>
+                            <button type="submit" class="btn btn-primary" id="generateButton">生成语音</button>
+                        </div>
                     </form>
-                    <div id="error" class="alert alert-danger mt-3" style="display: none;"></div>
+                    <div id="error" class="alert alert-danger mt-4" role="alert"></div>
                     <div class="mt-4" id="result" style="display: none;">
-                        <audio id="audio" controls class="w-100"></audio>
-                        <a id="download" class="btn btn-success btn-block mt-3" href="#" download="voice.mp3">下载语音文件</a>
+                        <audio id="audio" controls class="w-100 mb-3"></audio>
+                        <a id="download" class="btn btn-success w-100" href="#" download="voice.mp3">下载语音文件</a>
                     </div>
                     <div class="mt-4 text-center" id="loading" style="display: none;">
                         <i class="fas fa-spinner fa-spin"></i> 正在生成语音，请稍候...
@@ -75,13 +72,13 @@
         </div>
         
         <!-- 历史记录容器 -->
-        <div class="col-md-8 col-lg-6 mb-3">
-            <div class="card shadow-sm h-100">
-                <div class="card-header text-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow-sm">
+                <div class="card-header">
                     <h2>历史记录</h2>
                 </div>
                 <div class="card-body history-container">
-                    <button onclick="clearHistory()" class="btn btn-warning btn-block mb-3">清除历史</button>
+                    <button onclick="clearHistory()" class="btn btn-warning mb-3 w-100">清除历史</button>
                     <div id="historyItems"></div>
                 </div>
             </div>
@@ -90,7 +87,7 @@
 </div>
 
 <!-- 页脚 -->
-<footer class="text-center mt-5">
+<footer>
     <p><a href="https://zwei.de.eu.org" target="_blank">Zwei</a> | <a href="https://github.com/bestZwei/text2voice-web" target="_blank">Github</a></p>
 </footer>
 
