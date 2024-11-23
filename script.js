@@ -103,6 +103,9 @@ $(document).ready(function () {
                 alert('请稍候再试，每5秒只能请求一次。');
             }
         });
+
+        // 暂时禁用 Deno API 选项
+        $('#api option[value="deno-api"]').prop('disabled', true).text('Deno API (暂时不可用)');
     });
 });
 
@@ -136,32 +139,39 @@ function generateVoice(isPreview) {
     let rate = $('#rate').val();
     let pitch = $('#pitch').val();
 
-    if (apiName === 'workers-api') {
+    if (apiName === 'deno-api') {
+        const rateConverted = (parseFloat(rate) / 100).toFixed(2);
+        const pitchConverted = (parseFloat(pitch) / 100).toFixed(2);
+        
+        const params = new URLSearchParams({
+            text: previewText,
+            voice: speaker,
+            rate: rateConverted,
+            pitch: pitchConverted
+        });
+        
+        if (!isPreview) {
+            params.append('download', 'true');
+        }
+        
+        const url = `${apiUrl}?${params.toString()}`;
+        
+        makeRequest(url, isPreview, text, true);
+    } else {
         let url = `${apiUrl}?t=${encodeURIComponent(previewText)}&v=${encodeURIComponent(speaker)}`;
         url += `&r=${encodeURIComponent(rate)}&p=${encodeURIComponent(pitch)}`;
         if (!isPreview) {
             url += '&d=true';
         }
         
-        makeRequest(url, isPreview, text);
-    } else if (apiName === 'deno-api') {
-        const rateConverted = (parseFloat(rate) / 100).toFixed(2);
-        const pitchConverted = (parseFloat(pitch) / 100).toFixed(2);
-        
-        let url = `${apiUrl}?text=${encodeURIComponent(previewText)}&voice=${encodeURIComponent(speaker)}`;
-        url += `&rate=${rateConverted}&pitch=${pitchConverted}`;
-        if (!isPreview) {
-            url += '&download=true';
-        }
-        
-        makeRequest(url, isPreview, text);
+        makeRequest(url, isPreview, text, false);
     }
 }
 
 // 建议添加缓存机制
 const cachedAudio = new Map();
 
-function makeRequest(url, isPreview, text) {
+function makeRequest(url, isPreview, text, isDenoApi) {
     const cacheKey = `${url}_${text}`;
     if (cachedAudio.has(cacheKey)) {
         return Promise.resolve(cachedAudio.get(cacheKey));
@@ -180,38 +190,49 @@ function makeRequest(url, isPreview, text) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-    fetch(url, { signal: controller.signal })
-        .then(response => {
-            clearTimeout(timeoutId);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.blob();
-        })
-        .then(blob => {
-            currentAudioURL = URL.createObjectURL(blob);
-            $('#result').show();
-            $('#audio').attr('src', currentAudioURL);
-            $('#download').attr('href', currentAudioURL);
-            
-            if (!isPreview) {
-                const timestamp = new Date().toLocaleTimeString();
-                const shortenedText = text.length > 5 ? text.substring(0, 5) + '...' : text;
-                addHistoryItem(timestamp, shortenedText, currentAudioURL);
-            }
-        })
-        .catch(error => {
-            if (error.name === 'AbortError') {
-                showError('请求超时，请重试');
-            } else {
-                showError('生成失败：' + error.message);
-            }
-        })
-        .finally(() => {
-            $('#loading').hide();
-            $('#generateButton').prop('disabled', false);
-            $('#previewButton').prop('disabled', false);
-        });
+    fetch(url, { 
+        signal: controller.signal,
+        headers: {
+            'Accept': 'audio/mpeg',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => {
+        clearTimeout(timeoutId);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.blob();
+    })
+    .then(blob => {
+        if (!blob.type.includes('audio/')) {
+            throw new Error('返回的不是音频文件');
+        }
+        
+        currentAudioURL = URL.createObjectURL(blob);
+        $('#result').show();
+        $('#audio').attr('src', currentAudioURL);
+        $('#download').attr('href', currentAudioURL);
+        
+        if (!isPreview) {
+            const timestamp = new Date().toLocaleTimeString();
+            const shortenedText = text.length > 5 ? text.substring(0, 5) + '...' : text;
+            addHistoryItem(timestamp, shortenedText, currentAudioURL);
+        }
+    })
+    .catch(error => {
+        console.error('请求错误:', error);
+        if (error.name === 'AbortError') {
+            showError('请求超时，请重试');
+        } else {
+            showError('生成失败：' + (isDenoApi ? 'Deno API 服务暂时不可用，请尝试使用 Workers API' : error.message));
+        }
+    })
+    .finally(() => {
+        $('#loading').hide();
+        $('#generateButton').prop('disabled', false);
+        $('#previewButton').prop('disabled', false);
+    });
 }
 
 function handleError(jqXHR, textStatus, errorThrown) {
