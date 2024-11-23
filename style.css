@@ -24,6 +24,7 @@ body {
     flex-wrap: wrap;
     justify-content: center;
     gap: 20px;
+    margin: 0;
 }
 
 .card {
@@ -33,7 +34,7 @@ body {
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
     transition: transform 0.3s, box-shadow 0.3s;
     width: 100%;
-    max-width: 500px;
+    max-width: none;
     margin-bottom: 30px;
 }
 
@@ -122,39 +123,39 @@ button:hover {
 }
 
 .btn-primary {
-    background-color: #2575fc;
+    background-color: #4a9eff;
     border: none;
 }
 
 .btn-primary:hover {
-    background-color: #1a5dcb;
+    background-color: #3d8ae6;
 }
 
 .btn-info {
-    background-color: #6a11cb;
+    background-color: #8e44ed;
     border: none;
 }
 
 .btn-info:hover {
-    background-color: #4b0ebc;
+    background-color: #7a3bd4;
 }
 
 .btn-success {
-    background-color: #28a745;
+    background-color: #3dc45a;
     border: none;
 }
 
 .btn-success:hover {
-    background-color: #218838;
+    background-color: #34b04e;
 }
 
 .btn-warning {
-    background-color: #ffc107;
+    background-color: #ffcd39;
     border: none;
 }
 
 .btn-warning:hover {
-    background-color: #e0a800;
+    background-color: #f0bd2e;
 }
 
 .history-container {
@@ -222,8 +223,12 @@ footer a:hover {
         padding: 10px;
     }
 
+    .row {
+        gap: 10px;
+    }
+
     .card {
-        max-width: 100%;
+        margin-bottom: 15px;
     }
 
     .history-container {
