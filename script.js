@@ -1,5 +1,15 @@
 let apiConfig;
 let lastRequestTime = 0;
+let currentAudioURL = null;
+
+const API_CONFIG = {
+    'workers-api': {
+        url: 'https://worker-tts.api.zwei.de.eu.org/tts'
+    },
+    'deno-api': {
+        url: 'https://deno-tts.api.zwei.de.eu.org/tts'
+    }
+};
 
 function loadSpeakers() {
     return $.ajax({
@@ -29,6 +39,10 @@ function updateSliderLabel(sliderId, labelId) {
     const slider = $(`#${sliderId}`);
     const label = $(`#${labelId}`);
     label.text(slider.val());
+    
+    // 先解绑之前的事件
+    slider.off('input');
+    
     slider.on('input', function () {
         label.text(this.value);
     });
@@ -40,6 +54,8 @@ $(document).ready(function () {
 
         $('#api').on('change', function () {
             const apiName = $(this).val();
+            $('#speaker').prop('disabled', true).empty().append('<option>加载中...</option>');
+            
             updateSpeakerOptions(apiName);
             
             // 重置滑块值
@@ -55,13 +71,20 @@ $(document).ready(function () {
             };
             
             $('#apiTips').text(tips[apiName] || '');
+            
+            $('#speaker').prop('disabled', false);
         });
 
         updateSliderLabel('rate', 'rateValue');
         updateSliderLabel('pitch', 'pitchValue');
 
-        $('#text').on('input', function () {
-            $('#charCount').text(`字符数统计：${this.value.length}/3600`);
+        // 防抖处理
+        let debounceTimer;
+        $('#text').on('input', function() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                $('#charCount').text(`字符数统计：${this.value.length}/3600`);
+            }, 300);
         });
 
         $('#text2voice-form').on('submit', function (event) {
@@ -94,17 +117,24 @@ function canMakeRequest() {
 
 function generateVoice(isPreview) {
     const apiName = $('#api').val();
-    const apiUrl = apiConfig[apiName].url;
+    const apiUrl = API_CONFIG[apiName].url;
     const speaker = $('#speaker').val();
-    const text = $('#text').val();
+    const text = $('#text').val().trim();
+    const maxLength = 3600;
+    
+    if (!text) {
+        showError('请输入要转换的文本');
+        return;
+    }
+    
+    if (text.length > maxLength) {
+        showError(`文本长度不能超过${maxLength}个字符`);
+        return;
+    }
+
     const previewText = isPreview ? text.substring(0, 20) : text;
     let rate = $('#rate').val();
     let pitch = $('#pitch').val();
-
-    if (!text.trim()) {
-        alert('请输入要转换的文本');
-        return;
-    }
 
     if (apiName === 'workers-api') {
         let url = `${apiUrl}?t=${encodeURIComponent(previewText)}&v=${encodeURIComponent(speaker)}`;
@@ -128,63 +158,60 @@ function generateVoice(isPreview) {
     }
 }
 
+// 建议添加缓存机制
+const cachedAudio = new Map();
+
 function makeRequest(url, isPreview, text) {
+    const cacheKey = `${url}_${text}`;
+    if (cachedAudio.has(cacheKey)) {
+        return Promise.resolve(cachedAudio.get(cacheKey));
+    }
     $('#loading').show();
     $('#result').hide();
     $('#generateButton').prop('disabled', true);
     $('#previewButton').prop('disabled', true);
 
-    fetch(url)
+    // 释放之前的 URL
+    if (currentAudioURL) {
+        URL.revokeObjectURL(currentAudioURL);
+    }
+
+    // 添加请求超时处理
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    fetch(url, { signal: controller.signal })
         .then(response => {
+            clearTimeout(timeoutId);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             return response.blob();
         })
         .then(blob => {
-            const audioURL = URL.createObjectURL(blob);
+            currentAudioURL = URL.createObjectURL(blob);
             $('#result').show();
-            $('#audio').attr('src', audioURL);
+            $('#audio').attr('src', currentAudioURL);
+            $('#download').attr('href', currentAudioURL);
             
             if (!isPreview) {
-                addToHistory(text, audioURL);
+                const timestamp = new Date().toLocaleTimeString();
+                const shortenedText = text.length > 5 ? text.substring(0, 5) + '...' : text;
+                addHistoryItem(timestamp, shortenedText, currentAudioURL);
             }
         })
         .catch(error => {
-            console.error('Error:', error);
-            alert('生成失败：' + error.message);
+            if (error.name === 'AbortError') {
+                showError('请求超时，请重试');
+            } else {
+                showError('生成失败：' + error.message);
+            }
         })
         .finally(() => {
             $('#loading').hide();
             $('#generateButton').prop('disabled', false);
             $('#previewButton').prop('disabled', false);
         });
-}
-
-function handleSuccess(blob, isPreview, text) {
-    console.log('Blob type:', blob.type); // 添加调试信息
-    if (blob.type !== "audio/mpeg") {
-        console.error('Invalid Blob type:', blob.type);
-        alert('请求失败：无效的音频格式');
-        $('#loading').hide();
-        $('#generateButton').prop('disabled', false);
-        $('#previewButton').prop('disabled', false);
-        return;
-    }
-
-    const voiceUrl = URL.createObjectURL(blob);
-    $('#audio').attr('src', voiceUrl);
-    $('#audio')[0].load();
-    if (!isPreview) {
-        $('#download').attr('href', voiceUrl);
-        const timestamp = new Date().toLocaleTimeString();
-        const shortenedText = text.length > 5 ? text.substring(0, 5) + '...' : text;
-        addHistoryItem(timestamp, shortenedText, voiceUrl);
-    }
-    $('#result').show();
-    $('#loading').hide();
-    $('#generateButton').prop('disabled', false);
-    $('#previewButton').prop('disabled', false);
 }
 
 function handleError(jqXHR, textStatus, errorThrown) {
@@ -203,11 +230,18 @@ function handleError(jqXHR, textStatus, errorThrown) {
         errorMessage = `${textStatus}: ${errorThrown}`;
     }
     
-    alert(errorMessage);
+    showError(errorMessage);
 }
 
 function addHistoryItem(timestamp, text, audioURL) {
+    const MAX_HISTORY = 10;
     const historyItems = $('#historyItems');
+    if (historyItems.children().length >= MAX_HISTORY) {
+        const oldestItem = historyItems.children().first();
+        const oldUrl = oldestItem.find('button').attr('onclick').match(/'([^']+)'/)[1];
+        URL.revokeObjectURL(oldUrl);
+        oldestItem.remove();
+    }
     const historyItem = $(`
         <div class="history-item">
             <span>${timestamp} - ${text}</span>
@@ -235,6 +269,12 @@ function downloadAudio(audioURL) {
 }
 
 function clearHistory() {
+    // 清理所有历史记录的 Blob URLs
+    $('#historyItems .history-item').each(function() {
+        const audioURL = $(this).find('button').attr('onclick').match(/'([^']+)'/)[1];
+        URL.revokeObjectURL(audioURL);
+    });
+    
     $('#historyItems').empty();
     alert("历史记录已清除！");
 }
@@ -258,3 +298,35 @@ $.ajaxSetup({
         alert(message);
     }
 });
+
+function showError(message) {
+    const errorDiv = $('#error');
+    errorDiv.text(message).show();
+    setTimeout(() => errorDiv.fadeOut(), 5000); // 5秒后自动隐藏
+}
+
+// 缓存 DOM 选择器
+const $audio = $('#audio');
+const $loading = $('#loading');
+const $result = $('#result');
+const $generateButton = $('#generateButton');
+const $previewButton = $('#previewButton');
+
+// 添加页面卸载时的清理
+window.addEventListener('beforeunload', function() {
+    // 清理所有历史记录的 Blob URLs
+    $('#historyItems .history-item').each(function() {
+        const audioURL = $(this).find('button').attr('onclick').match(/'([^']+)'/)[1];
+        URL.revokeObjectURL(audioURL);
+    });
+    
+    // 清理当前的音频 URL
+    if (currentAudioURL) {
+        URL.revokeObjectURL(currentAudioURL);
+    }
+});
+
+// 使用防抖优化字符计数
+const updateCharCount = _.debounce(function(length) {
+    $('#charCount').text(`字符数统计：${length}/3600`);
+}, 300);
