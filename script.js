@@ -75,7 +75,7 @@ $(document).ready(function() {
             if (canMakeRequest()) {
                 generateVoice(false);
             } else {
-                showError('请稍候再试，每5秒只能请求一次。');
+                showError('请稍候再试，每3秒只能请求一次。');
             }
         });
 
@@ -83,7 +83,7 @@ $(document).ready(function() {
             if (canMakeRequest()) {
                 generateVoice(true);
             } else {
-                showError('请稍候再试，每5秒只能请求一次。');
+                showError('请稍候再试，每3秒只能请求一次。');
             }
         });
     });
@@ -91,7 +91,7 @@ $(document).ready(function() {
 
 function canMakeRequest() {
     const currentTime = Date.now();
-    if (currentTime - lastRequestTime >= 5000) {
+    if (currentTime - lastRequestTime >= 3000) {
         lastRequestTime = currentTime;
         return true;
     }
