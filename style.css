@@ -248,3 +248,56 @@ footer a:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
+
+/* 滑块容器样式 */
+.form-group input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 8px;
+    border-radius: 5px;
+    background: #e0e0e0;
+    outline: none;
+    margin: 10px 0;
+}
+
+/* Webkit (Chrome, Safari) 的滑块样式 */
+.form-group input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #42a5f5;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 6px rgba(66, 165, 245, 0.2);
+}
+
+.form-group input[type="range"]::-webkit-slider-thumb:hover {
+    background: #1e88e5;
+    transform: scale(1.1);
+}
+
+/* Firefox 的滑块样式 */
+.form-group input[type="range"]::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border: none;
+    border-radius: 50%;
+    background: #42a5f5;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 6px rgba(66, 165, 245, 0.2);
+}
+
+.form-group input[type="range"]::-moz-range-thumb:hover {
+    background: #1e88e5;
+    transform: scale(1.1);
+}
+
+/* 滑块轨道样式 */
+.form-group input[type="range"]::-moz-range-track {
+    background: #e0e0e0;
+    border-radius: 5px;
+    height: 8px;
+}
