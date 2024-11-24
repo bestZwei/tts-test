@@ -17,37 +17,40 @@
 </head>
 <body>
 
-<div class="container-fluid d-flex flex-column justify-content-center align-items-center mt-5" style="min-height: 90vh;">
+<div class="container-fluid d-flex flex-column justify-content-center align-items-center mt-5">
     <div class="row w-100 justify-content-center">
         <!-- 表单容器 -->
-        <div class="col-md-8 col-lg-6 mb-3">
-            <div class="card shadow-sm h-100">
-                <div class="card-header text-center">
+        <div class="col-md-6 card-wrapper">
+            <div class="card shadow-sm">
+                <div class="card-header">
                     <h2>文本转语音</h2>
                 </div>
                 <div class="card-body">
                     <form id="text2voice-form">
-                        <div class="form-row">
-                            <!-- API选择 -->
-                            <div class="form-group col-md-6">
-                                <label for="api">选择API：</label>
-                                <select class="form-control" id="api" required>
-                                    <option value="workers-api">Workers API</option>
-                                    <option value="deno-api">Deno API</option>
-                                </select>
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="api">选择API：</label>
+                                    <select class="form-control" id="api" required>
+                                        <option value="workers-api">Workers API</option>
+                                        <option value="deno-api">Deno API</option>
+                                    </select>
+                                </div>
                             </div>
-                            <!-- 选择讲述人 -->
-                            <div class="form-group col-md-6">
-                                <label for="speaker">选择讲述人:</label>
-                                <select class="form-control" id="speaker" required></select>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="speaker">选择讲述人:</label>
+                                    <select class="form-control" id="speaker" required></select>
+                                </div>
                             </div>
                         </div>
-                        
-                        <div class="form-group d-flex justify-content-between">
-                            <label for="text">输入文本:</label>
-                            <span id="charCount">字符数统计：0/3600</span>
+                        <div class="form-group mb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span id="charCount">字符数统计：0/3600</span>
+                                <small class="text-muted">最多3600字</small>
+                            </div>
+                            <textarea class="form-control" id="text" rows="4" required maxlength="3600" placeholder="请输入要转换的文本..."></textarea>
                         </div>
-                        <textarea class="form-control" id="text" rows="3" required maxlength="3600"></textarea>
                         <div class="form-group mb-4">
                             <label for="rate">语速: <span id="rateValue">0</span></label>
                             <input type="range" class="form-control-range" id="rate" name="rate" min="-100" max="100" value="0">
@@ -74,7 +77,7 @@
         </div>
         
         <!-- 历史记录容器 -->
-        <div class="col-md-8 col-lg-6 mb-3">
+        <div class="col-md-6 card-wrapper">
             <div class="card shadow-sm">
                 <div class="card-header">
                     <h2>历史记录</h2>
