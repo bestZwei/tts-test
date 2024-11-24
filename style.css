@@ -65,6 +65,9 @@ body {
 
 .card-body {
     padding: 30px 25px;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
 }
 
 .form-group {
@@ -149,7 +152,8 @@ label {
 }
 
 .history-container {
-    max-height: 70vh;
+    max-height: none;
+    height: 100%;
     overflow-y: auto;
     padding: 20px;
     scrollbar-width: auto;
