@@ -13,8 +13,6 @@ body {
     padding: 20px;
     flex-grow: 1;
     min-height: 90vh;
-    max-height: 100vh;
-    overflow: hidden;
 }
 
 .row {
@@ -23,8 +21,6 @@ body {
     margin: 0;
     width: 100%;
     justify-content: center;
-    align-items: flex-start;
-    height: 100%;
 }
 
 .col-md-6 {
@@ -41,10 +37,7 @@ body {
     transition: all 0.4s ease;
     height: 100%;
     max-width: 650px;
-    max-height: 80vh;
     margin: 0 auto;
-    display: flex;
-    flex-direction: column;
 }
 
 .card:hover {
@@ -70,7 +63,6 @@ body {
 
 .card-body {
     padding: 30px 25px;
-    overflow-y: auto;
 }
 
 .form-group {
@@ -329,17 +321,5 @@ footer a:hover {
     to {
         opacity: 1;
         transform: translateY(0);
-    }
-}
-
-@media (max-width: 1200px) {
-    .card {
-        max-width: 500px;
-    }
-}
-
-@media (max-width: 992px) {
-    .card {
-        max-width: 100%;
     }
 }
