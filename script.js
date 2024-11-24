@@ -31,7 +31,10 @@ function updateSpeakerOptions(apiName) {
     const speakers = apiConfig[apiName].speakers;
     const speakerSelect = $('#speaker');
     speakerSelect.empty();
-    $.each(speakers, function(key, value) {
+    
+    const sortedSpeakers = Object.entries(speakers).sort((a, b) => a[1].localeCompare(b[1]));
+    
+    sortedSpeakers.forEach(([key, value]) => {
         speakerSelect.append(new Option(value, key));
     });
 }
@@ -41,77 +44,49 @@ function updateSliderLabel(sliderId, labelId) {
     const label = $(`#${labelId}`);
     label.text(slider.val());
     
-    // 先解绑之前的事件
-    slider.off('input');
-    
-    slider.on('input', function () {
+    slider.off('input').on('input', function() {
         label.text(this.value);
     });
 }
 
-$(document).ready(function () {
+$(document).ready(function() {
     loadSpeakers().then(() => {
         $('[data-toggle="tooltip"]').tooltip();
 
-        $('#api').on('change', function () {
+        $('#api').on('change', function() {
             const apiName = $(this).val();
-            $('#speaker').prop('disabled', true).empty().append('<option>加载中...</option>');
-            
             updateSpeakerOptions(apiName);
             
-            // 重置滑块值
-            $('#rate').val(0);
-            $('#pitch').val(0);
+            $('#rate, #pitch').val(0);
             updateSliderLabel('rate', 'rateValue');
             updateSliderLabel('pitch', 'pitchValue');
             
-            // 显示 API 相关提示
             const tips = {
                 'workers-api': '使用 Workers API，支持简单参数',
                 'deno-api': '使用 Deno API，支持完整参数'
             };
-            
             $('#apiTips').text(tips[apiName] || '');
-            
-            $('#speaker').prop('disabled', false);
         });
 
         updateSliderLabel('rate', 'rateValue');
         updateSliderLabel('pitch', 'pitchValue');
 
-        // 防抖处理
-        let debounceTimer;
-        $('#text').on('input', function() {
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => {
-                $('#charCount').text(`字符数统计：${this.value.length}/3600`);
-            }, 300);
-        });
-
-        $('#text2voice-form').on('submit', function (event) {
-            event.preventDefault();
+        $('#generateButton').on('click', function() {
             if (canMakeRequest()) {
                 generateVoice(false);
             } else {
-                alert('请稍候再试，每5秒只能请求一次。');
+                showError('请稍候再试，每5秒只能请求一次。');
             }
         });
 
-        $('#previewButton').on('click', function () {
+        $('#previewButton').on('click', function() {
             if (canMakeRequest()) {
                 generateVoice(true);
             } else {
-                alert('请稍候再试，每5秒只能请求一次。');
+                showError('请稍候再试，每5秒只能请求一次。');
             }
         });
-
-        $('#clearHistoryButton').on('click', function () {
-            clearHistory();
-        });
     });
-
-    // 初始化音频播放器外观
-    initializeAudioPlayer();
 });
 
 function canMakeRequest() {
@@ -186,12 +161,10 @@ function makeRequest(url, isPreview, text, isDenoApi) {
     $('#generateButton').prop('disabled', true);
     $('#previewButton').prop('disabled', true);
 
-    // 释放之前的 URL
     if (currentAudioURL) {
         URL.revokeObjectURL(currentAudioURL);
     }
 
-    // 添加请求超时处理
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
 
@@ -291,7 +264,6 @@ function downloadAudio(audioURL) {
 }
 
 function clearHistory() {
-    // 清理所有历史记录的 Blob URLs
     $('#historyItems .history-item').each(function() {
         const audioURL = $(this).find('button').first().attr('onclick').match(/'([^']+)'/)[1];
         URL.revokeObjectURL(audioURL);
