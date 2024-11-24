@@ -32,21 +32,7 @@ function updateSpeakerOptions(apiName) {
     const speakerSelect = $('#speaker');
     speakerSelect.empty();
     
-    const sortedSpeakers = Object.entries(speakers).sort((a, b) => {
-        const isZhA = a[0].startsWith('zh-') || a[0].startsWith('en-');
-        const isZhB = b[0].startsWith('zh-') || b[0].startsWith('en-');
-        
-        if (isZhA && isZhB) {
-            return a[1].localeCompare(b[1], 'zh-CN');
-        }
-        
-        if (isZhA) return -1;
-        if (isZhB) return 1;
-        
-        return a[1].localeCompare(b[1], 'zh-CN');
-    });
-    
-    sortedSpeakers.forEach(([key, value]) => {
+    Object.entries(speakers).forEach(([key, value]) => {
         speakerSelect.append(new Option(value, key));
     });
 }
