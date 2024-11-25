@@ -210,51 +210,32 @@ async function generateVoice(isPreview = false) {
             throw new Error(`服务器响应错误: ${response.status}`);
         }
 
-        const contentType = response.headers.get('content-type');
-        console.log('响应Content-Type:', contentType);
+        // 获取响应数据（只读取一次）
+        const arrayBuffer = await response.arrayBuffer();
+        const contentType = response.headers.get('content-type') || 'audio/mpeg';
+        
+        // 创建音频 Blob
+        const audioBlob = new Blob([arrayBuffer], { type: contentType });
+        const audioUrl = URL.createObjectURL(audioBlob);
 
-        const blob = await response.blob();
-        console.log('响应Blob类型:', blob.type);
+        // 验证音频是否可播放
+        try {
+            await validateAudio(audioUrl);
+        } catch (error) {
+            URL.revokeObjectURL(audioUrl);
+            throw new Error('无效的音频数据');
+        }
 
-        // 更宽松的音频类型检查
-        if (!blob.type.includes('audio/') && !blob.type.includes('application/octet-stream')) {
-            // 如果确实是音频数据，强制设置类型
-            const audioBlob = new Blob([await response.arrayBuffer()], { type: 'audio/mpeg' });
-            const audioUrl = URL.createObjectURL(audioBlob);
-            
-            // 验证是否为有效的音频文件
-            const audio = new Audio();
-            audio.src = audioUrl;
-            
-            await new Promise((resolve, reject) => {
-                audio.onloadedmetadata = resolve;
-                audio.onerror = () => reject(new Error('无效的音频数据'));
-                // 5秒超时
-                setTimeout(() => reject(new Error('音频加载超时')), 5000);
-            });
+        // 更新音频播放器
+        $('#result').show();
+        $('#audio').attr('src', audioUrl);
+        $('#download').attr('href', audioUrl);
 
-            // 更新音频播放器
-            $('#result').show();
-            $('#audio').attr('src', audioUrl);
-            $('#download').attr('href', audioUrl);
-
-            // 如果不是预览，添加到历史记录
-            if (!isPreview) {
-                const timestamp = new Date().toLocaleTimeString();
-                const shortenedText = text.length > 20 ? text.substring(0, 20) + '...' : text;
-                addHistoryItem(timestamp, shortenedText, audioUrl);
-            }
-        } else {
-            const audioUrl = URL.createObjectURL(blob);
-            $('#result').show();
-            $('#audio').attr('src', audioUrl);
-            $('#download').attr('href', audioUrl);
-
-            if (!isPreview) {
-                const timestamp = new Date().toLocaleTimeString();
-                const shortenedText = text.length > 20 ? text.substring(0, 20) + '...' : text;
-                addHistoryItem(timestamp, shortenedText, audioUrl);
-            }
+        // 如果不是预览，添加到历史记录
+        if (!isPreview) {
+            const timestamp = new Date().toLocaleTimeString();
+            const shortenedText = text.length > 20 ? text.substring(0, 20) + '...' : text;
+            addHistoryItem(timestamp, shortenedText, audioUrl);
         }
 
     } catch (error) {
@@ -265,6 +246,86 @@ async function generateVoice(isPreview = false) {
         $('#generateButton, #previewButton').prop('disabled', false);
     }
 }
+
+// 添加音频验证函数
+function validateAudio(audioUrl) {
+    return new Promise((resolve, reject) => {
+        const audio = new Audio();
+        
+        const timeoutId = setTimeout(() => {
+            cleanup();
+            reject(new Error('音频加载超时'));
+        }, 5000);
+
+        function cleanup() {
+            audio.onloadedmetadata = null;
+            audio.onerror = null;
+            clearTimeout(timeoutId);
+        }
+
+        audio.onloadedmetadata = () => {
+            cleanup();
+            resolve();
+        };
+
+        audio.onerror = () => {
+            cleanup();
+            reject(new Error('音频加载失败'));
+        };
+
+        audio.src = audioUrl;
+    });
+}
+
+// 添加历史记录项的函数
+function addHistoryItem(timestamp, text, audioUrl) {
+    const historyItem = $(`
+        <div class="history-item mb-2 p-2 border rounded">
+            <div class="d-flex justify-content-between align-items-center">
+                <small class="text-muted">${timestamp}</small>
+                <span class="mx-2 text-truncate">${text}</span>
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-outline-primary" onclick="playAudio('${audioUrl}')">
+                        <i class="fas fa-play"></i>
+                    </button>
+                    <a class="btn btn-sm btn-outline-success" href="${audioUrl}" download="tts_${timestamp}.mp3">
+                        <i class="fas fa-download"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    `);
+    
+    $('#historyItems').prepend(historyItem);
+}
+
+// 添加音频资源管理
+const audioCache = new Map();
+
+function cleanupAudioCache() {
+    const maxCacheSize = 50; // 最大缓存数量
+    if (audioCache.size > maxCacheSize) {
+        const oldestUrl = audioCache.keys().next().value;
+        URL.revokeObjectURL(oldestUrl);
+        audioCache.delete(oldestUrl);
+    }
+}
+
+// 修改播放历史记录中的音频的函数
+function playAudio(audioUrl) {
+    const audio = $('#audio')[0];
+    audio.src = audioUrl;
+    audio.play().catch(error => {
+        console.error('播放音频失败:', error);
+        showError('播放失败，请重试');
+    });
+}
+
+// 在页面卸载时清理音频资源
+window.addEventListener('beforeunload', () => {
+    audioCache.forEach(url => URL.revokeObjectURL(url));
+    audioCache.clear();
+});
 
 const cachedAudio = new Map();
 
@@ -352,66 +413,6 @@ function showError(message) {
     const errorDiv = $('#error');
     errorDiv.text(message).show();
     setTimeout(() => errorDiv.fadeOut(), 3000);
-}
-
-function addHistoryItem(timestamp, text, audioURL) {
-    const MAX_HISTORY = 50;
-    const historyItems = $('#historyItems');
-    
-    if (historyItems.children().length >= MAX_HISTORY) {
-        const oldestItem = historyItems.children().last();
-        const oldUrl = oldestItem.find('button').first().attr('onclick').match(/'([^']+)'/)[1];
-        
-        for (let [key, value] of cachedAudio.entries()) {
-            if (value === oldUrl) {
-                cachedAudio.delete(key);
-                break;
-            }
-        }
-        
-        URL.revokeObjectURL(oldUrl);
-        oldestItem.remove();
-    }
-    const historyItem = $(`
-        <div class="history-item list-group-item" style="opacity: 0;">
-            <div class="d-flex justify-content-between align-items-center">
-                <span class="text-truncate" style="max-width: 60%;">${timestamp} - ${text}</span>
-                <div class="btn-group">
-                    <button class="btn btn-sm btn-outline-primary" onclick="playAudio('${audioURL}')">
-                        播放
-                    </button>
-                    <button class="btn btn-sm btn-outline-success" onclick="downloadAudio('${audioURL}')">
-                        下载
-                    </button>
-                </div>
-            </div>
-        </div>
-    `);
-    
-    $('#historyItems').prepend(historyItem);
-    setTimeout(() => historyItem.animate({ opacity: 1 }, 300), 50);
-}
-
-function playAudio(audioURL) {
-    const audioElement = $('#audio')[0];
-    audioElement.onerror = function() {
-        showError('音频播放失败，请重试');
-    };
-    audioElement.src = audioURL;
-    audioElement.load();
-    audioElement.play().catch(error => {
-        console.error('播放失败:', error);
-        showError('音频播放失败，请重试');
-    });
-}
-
-function downloadAudio(audioURL) {
-    const link = document.createElement('a');
-    link.href = audioURL;
-    link.download = 'audio.mp3';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
 }
 
 function clearHistory() {
