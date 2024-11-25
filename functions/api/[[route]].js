@@ -66,17 +66,38 @@ async function handleOptions(request) {
 }
 
 async function handleTTS(requestUrl) {
-    const text = requestUrl.searchParams.get("t") || "";
-    const voiceName = requestUrl.searchParams.get("v") || "zh-CN-XiaoxiaoNeural";
-    const rate = Number(requestUrl.searchParams.get("r")) || 0;
-    const pitch = Number(requestUrl.searchParams.get("p")) || 0;
-    const outputFormat = requestUrl.searchParams.get("o") || "audio-24khz-48kbitrate-mono-mp3";
-    const download = requestUrl.searchParams.get("d") === "true";
     try {
-        const response = await getVoice(text, voiceName, rate, pitch, outputFormat, download);
-        return addCORSHeaders(response);
+        const text = requestUrl.searchParams.get("t") || "";
+        const voiceName = requestUrl.searchParams.get("v") || "zh-CN-XiaoxiaoNeural";
+        const rate = Number(requestUrl.searchParams.get("r")) || 0;
+        const pitch = Number(requestUrl.searchParams.get("p")) || 0;
+        const outputFormat = requestUrl.searchParams.get("o") || "audio-24khz-48kbitrate-mono-mp3";
+        const download = requestUrl.searchParams.get("d") === "true";
+
+        // 获取音频数据
+        const audioBuffer = await getVoice(text, voiceName, rate, pitch, outputFormat);
+
+        // 设置正确的响应头
+        const headers = {
+            "Content-Type": "audio/mpeg",
+            "Content-Length": audioBuffer.length,
+            ...makeCORSHeaders()
+        };
+
+        if (download) {
+            headers["Content-Disposition"] = `attachment; filename="speech_${Date.now()}.mp3"`;
+        }
+
+        return new Response(audioBuffer, { headers });
     } catch (error) {
-        return new Response("Internal Server Error", { status: 500 });
+        console.error('TTS处理错误:', error);
+        return new Response(JSON.stringify({ error: error.message }), {
+            status: 500,
+            headers: {
+                "Content-Type": "application/json",
+                ...makeCORSHeaders()
+            }
+        });
     }
 }
 
@@ -137,13 +158,13 @@ function handleDefault(requestUrl) {
 function makeCORSHeaders() {
     return {
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET,HEAD,POST,OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, x-auth-token",
+        "Access-Control-Allow-Methods": "GET, HEAD, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
         "Access-Control-Max-Age": "86400"
     };
 }
 
-async function getVoice(text, voiceName, rate, pitch, outputFormat, download) {
+async function getVoice(text, voiceName, rate, pitch, outputFormat) {
     await refreshEndpoint();
     const url = `https://${endpoint.r}.tts.speech.microsoft.com/cognitiveservices/v1`;
     const headers = {
@@ -172,15 +193,7 @@ async function getVoice(text, voiceName, rate, pitch, outputFormat, download) {
     }
 
     const audioBuffer = await response.arrayBuffer();
-    const headersResponse = {
-        "Content-Type": outputFormat,
-        "Access-Control-Allow-Origin": "*"
-    };
-    if (download) {
-        headersResponse["Content-Disposition"] = `attachment; filename="speech_${Date.now()}.mp3"`;
-    }
-
-    return new Response(audioBuffer, { headers: headersResponse });
+    return audioBuffer;
 }
 
 async function refreshEndpoint() {

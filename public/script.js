@@ -187,7 +187,6 @@ async function generateVoice(isPreview = false) {
         }
 
         const url = buildRequestUrl(isPreview);
-        const api = $('#api').val();
         
         $('#loading').show();
         $('#error').hide();
@@ -197,29 +196,65 @@ async function generateVoice(isPreview = false) {
         const response = await fetch(url, {
             method: 'GET',
             headers: {
-                'Accept': 'audio/mpeg'
+                'Accept': 'audio/mpeg, audio/*'
             }
         });
 
         if (!response.ok) {
+            // 尝试解析错误响应
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `服务器响应错误: ${response.status}`);
+            }
             throw new Error(`服务器响应错误: ${response.status}`);
         }
 
+        const contentType = response.headers.get('content-type');
+        console.log('响应Content-Type:', contentType);
+
         const blob = await response.blob();
-        if (!blob.type.includes('audio/')) {
-            throw new Error('返回的不是音频文件');
-        }
+        console.log('响应Blob类型:', blob.type);
 
-        const audioUrl = URL.createObjectURL(blob);
-        
-        $('#result').show();
-        $('#audio').attr('src', audioUrl);
-        $('#download').attr('href', audioUrl);
+        // 更宽松的音频类型检查
+        if (!blob.type.includes('audio/') && !blob.type.includes('application/octet-stream')) {
+            // 如果确实是音频数据，强制设置类型
+            const audioBlob = new Blob([await response.arrayBuffer()], { type: 'audio/mpeg' });
+            const audioUrl = URL.createObjectURL(audioBlob);
+            
+            // 验证是否为有效的音频文件
+            const audio = new Audio();
+            audio.src = audioUrl;
+            
+            await new Promise((resolve, reject) => {
+                audio.onloadedmetadata = resolve;
+                audio.onerror = () => reject(new Error('无效的音频数据'));
+                // 5秒超时
+                setTimeout(() => reject(new Error('音频加载超时')), 5000);
+            });
 
-        if (!isPreview) {
-            const timestamp = new Date().toLocaleTimeString();
-            const shortenedText = text.length > 20 ? text.substring(0, 20) + '...' : text;
-            addHistoryItem(timestamp, shortenedText, audioUrl);
+            // 更新音频播放器
+            $('#result').show();
+            $('#audio').attr('src', audioUrl);
+            $('#download').attr('href', audioUrl);
+
+            // 如果不是预览，添加到历史记录
+            if (!isPreview) {
+                const timestamp = new Date().toLocaleTimeString();
+                const shortenedText = text.length > 20 ? text.substring(0, 20) + '...' : text;
+                addHistoryItem(timestamp, shortenedText, audioUrl);
+            }
+        } else {
+            const audioUrl = URL.createObjectURL(blob);
+            $('#result').show();
+            $('#audio').attr('src', audioUrl);
+            $('#download').attr('href', audioUrl);
+
+            if (!isPreview) {
+                const timestamp = new Date().toLocaleTimeString();
+                const shortenedText = text.length > 20 ? text.substring(0, 20) + '...' : text;
+                addHistoryItem(timestamp, shortenedText, audioUrl);
+            }
         }
 
     } catch (error) {
@@ -559,4 +594,32 @@ function debugSpeakersConfig() {
     console.log('Speaker Options:', $('#speaker option').length);
     console.log('Current API:', $('#api').val());
     console.groupEnd();
+}
+
+// 添加调试函数
+function debugResponse(response) {
+    console.group('响应调试信息');
+    console.log('状态:', response.status);
+    console.log('状态文本:', response.statusText);
+    console.log('头部:', Object.fromEntries(response.headers.entries()));
+    console.groupEnd();
+}
+
+// 添加重试机制
+async function fetchWithRetry(url, options, retries = 3) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            const response = await fetch(url, options);
+            if (response.ok) {
+                return response;
+            }
+            console.warn(`请求失败，尝试重试 ${i + 1}/${retries}`);
+        } catch (error) {
+            if (i === retries - 1) throw error;
+            console.warn(`请求出错，尝试重试 ${i + 1}/${retries}`, error);
+        }
+        // 延迟重试
+        await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+    }
+    throw new Error('请求失败，已达到最大重试次数');
 }
