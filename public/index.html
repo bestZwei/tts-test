@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- 核心SEO标签 -->
+    <title>文本转语音 | 免费在线TTS转换工具 - Ciallo TTS</title>
+    <meta name="description" content="Ciallo TTS 是一款免费的在线文本转语音工具，支持多种声音选择，可调节语速和语调，提供即时试听和下载功能。快速将文字转换成自然流畅的语音。Ciallo TTS是免费的文本转语音工具，提供语音合成服务，支持多种语言，包括英语、法语、德语、西班牙语、阿拉伯语、中文、日语、朝鲜语、粤语、越南语等，以及多种语音风格，提供丰富的讲述人。Ciallo TTS is an online text-to-speech tool, also known as a voice generator, it can convert text to audio, and you can play or download audio files. Free online text-to-speech converter supporting multiple voices, adjustable speed and pitch, with instant preview and download features.">
+    <meta name="keywords" content="文本转语音,TTS,语音合成,在线配音,讲述人,FREE TTS,文字转语音,语音生成器,AI配音,免费TTS,在线朗读,文案工具">
+    <meta name="author" content="Zwei">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://tts.ciallo.de/">
+    
+    <!-- Open Graph标签增强 -->
+    <meta property="og:title" content="文本转语音 | 免费在线TTS转换工具 - Ciallo TTS">
+    <meta property="og:description" content="Ciallo TTS 是一款免费的在线文本转语音工具，支持多种声音选择，可调节语速和语调，提供即时试听和下载功能。快速将文字转换成自然流畅的语音。Ciallo TTS是免费的文本转语音工具，提供语音合成服务，支持多种语言，包括英语、法语、德语、西班牙语、阿拉伯语、中文、日语、朝鲜语、粤语、越南语等，以及多种语音风格，提供丰富的讲述人。Ciallo TTS is an online text-to-speech tool, also known as a voice generator, it can convert text to audio, and you can play or download audio files. Free online text-to-speech converter supporting multiple voices, adjustable speed and pitch, with instant preview and download features.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://tts.ciallo.de/">
+    <meta property="og:image" content="https://tts.ciallo.de/image/TTS.png">
+    <meta property="og:site_name" content="Ciallo TTS">
+    <meta property="og:locale" content="zh_CN">
+    
+    <!-- Twitter Card标签增强 -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="文本转语音 | 免费在线TTS转换工具 - Ciallo TTS">
+    <meta name="twitter:description" content="Ciallo TTS是一款免费的在线文本转语音工具,支持多种声音选择,可调节语速和语调,提供即时试听和下载功能。">
+    <meta name="twitter:image" content="https://tts.ciallo.de/image/TTS.png">
+    
+    <!-- 其他原有标签 -->
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- 网站图标 -->
+    <link rel="icon" type="image/png" href="image/TTS.png">
+    <link rel="apple-touch-icon" href="image/TTS.png">
+    <link rel="shortcut icon" type="image/png" href="image/TTS.png">
+
+    <!-- 添加安全相关的meta标签 -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://worker-tts.api.zwei.de.eu.org https://deno-tts.api.zwei.de.eu.org; 
+script-src 'self' 'unsafe-inline' https://code.jquery.com https://cdnjs.cloudflare.com https://maxcdn.bootstrapcdn.com; 
+style-src 'self' 'unsafe-inline' https://maxcdn.bootstrapcdn.com https://cdnjs.cloudflare.com; 
+img-src 'self' data: https:; 
+media-src 'self' blob: https:; 
+font-src 'self' https://cdnjs.cloudflare.com;">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+
+    <!-- 建议添加预加载关键资源 -->
+    <link rel="preload" href="style.css" as="style">
+    <link rel="preload" href="script.js" as="script">
+</head>
+<body>
+    <!-- 添加结构化数据 -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Ciallo TTS - 文本转语音工具",
+        "url": "https://tts.ciallo.de/",
+        "description": "免费在线文本转语音工具,支持多种声音选择,可调节语速和语调,提供即时试听和下载功能。",
+        "applicationCategory": "MultimediaApplication",
+        "operatingSystem": "All",
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+        },
+        "author": {
+            "@type": "Person",
+            "name": "Zwei"
+        }
+    }
+    </script>
+
+    <div class="container-fluid d-flex flex-column justify-content-center align-items-center mt-5" style="min-height: 90vh;">
+        <div class="row w-100 justify-content-center">
+            <!-- 表单容器 -->
+            <div class="col-md-8 col-lg-6 mb-3">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header text-center">
+                        <h2>文本转语音</h2>
+                    </div>
+                    <div class="card-body">
+                        <form id="text2voice-form">
+                            <div class="form-row">
+                                <div class="form-group col-md-6">
+                                    <label for="api">选择API：</label>
+                                    <select class="form-control" id="api" required>
+                                        <option value="workers-api">Workers API</option>
+                                        <option value="deno-api">Deno API</option>
+                                    </select>
+                                    <small id="apiTips" class="form-text text-muted"></small>
+                                </div>
+                                <div class="form-group col-md-6">
+                                    <label for="speaker">选择语音：</label>
+                                    <select class="form-control" id="speaker" required>
+                                        <option value="">加载中...</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="text">输入文本：</label>
+                                <textarea class="form-control" id="text" rows="4" required maxlength="3600"></textarea>
+                                <small id="charCount" class="form-text text-muted">最多3600个字符，目前已输入0个字符</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="rate">语速: <span id="rateValue">0</span></label>
+                                <input type="range" class="form-control-range" id="rate" name="rate" min="-100" max="100" value="0">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="pitch">语调: <span id="pitchValue">0</span></label>
+                                <input type="range" class="form-control-range" id="pitch" name="pitch" min="-100" max="100" value="0">
+                            </div>
+
+                            <div id="error" class="alert alert-danger" style="display: none;"></div>
+
+                            <button type="button" class="btn btn-info btn-block mb-3" id="previewButton">试听前20个字</button>
+                            <button type="button" class="btn btn-primary btn-block" id="generateButton">生成语音</button>
+                        </form>
+
+                        <div class="mt-4" id="result" style="display: none;">
+                            <audio id="audio" controls class="w-100"></audio>
+                            <a id="download" class="btn btn-success btn-block mt-3" href="#" download="voice.mp3">下载语音文件</a>
+                        </div>
+
+                        <div class="mt-4 text-center" id="loading" style="display: none;">
+                            <i class="fas fa-spinner fa-spin"></i> 正在生成语音，请稍候...
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 历史记录容器 -->
+            <div class="col-md-8 col-lg-6 mb-3">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header text-center">
+                        <h2>历史记录</h2>
+                    </div>
+                    <div class="card-body history-container">
+                        <button onclick="clearHistory()" class="btn btn-warning btn-block mb-3">清除历史</button>
+                        <div id="historyItems"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="text-center mt-5">
+        <p>
+            <a href="https://zwei.de.eu.org" target="_blank">Zwei</a> | 
+            <a href="https://github.com/bestZwei/ciallo-tts" target="_blank">Code</a>
+        </p>
+    </footer>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.1/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="script.js"></script>
+
+    <!-- 检查所有 API 调用路径是否已更新 -->
+    <script>
+        // 示例 API 调用
+        fetch('/api/voices')
+            .then(response => response.json())
+            .then(data => {
+                // 处理数据
+            });
+    </script>
+
+</body>
+</html>

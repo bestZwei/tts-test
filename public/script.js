@@ -4,10 +4,12 @@ let currentAudioURL = null;
 
 const API_CONFIG = {
     'workers-api': {
-        url: 'https://worker-tts.api.zwei.de.eu.org/tts'
+        url: '/api/tts',
+        speakers: speakers['workers-api']
     },
     'deno-api': {
-        url: 'https://deno-tts.api.zwei.de.eu.org/tts'
+        url: 'https://deno-tts.api.zwei.de.eu.org/tts',
+        speakers: speakers['deno-api']
     }
 };
 
@@ -49,6 +51,8 @@ function updateSliderLabel(sliderId, labelId) {
 
 $(document).ready(function() {
     loadSpeakers().then(() => {
+        $('#apiTips').text('使用 Workers API，每天限制 100000 次请求');
+
         $('[data-toggle="tooltip"]').tooltip();
 
         $('#api').on('change', function() {
@@ -60,8 +64,8 @@ $(document).ready(function() {
             updateSliderLabel('pitch', 'pitchValue');
             
             const tips = {
-                'workers-api': '使用 Workers API，支持简单参数',
-                'deno-api': '使用 Deno API，支持完整参数'
+                'workers-api': '使用 Workers API，每天限制 100000 次请求',
+                'deno-api': '使用 Deno API，基于 Lobe-TTS，暂不支持语速语调调整'
             };
             $('#apiTips').text(tips[apiName] || '');
         });
@@ -83,6 +87,11 @@ $(document).ready(function() {
             } else {
                 showError('请稍候再试，每3秒只能请求一次。');
             }
+        });
+
+        $('#text').on('input', function() {
+            const currentLength = $(this).val().length;
+            $('#charCount').text(`最多3600个字符，目前已输入${currentLength}个字符`);
         });
     });
 });
@@ -149,9 +158,23 @@ function generateVoice(isPreview) {
 const cachedAudio = new Map();
 
 function makeRequest(url, isPreview, text, isDenoApi) {
+    try {
+        new URL(url);
+    } catch (e) {
+        showError('无效的请求地址');
+        return Promise.reject(e);
+    }
+    
     const cacheKey = `${url}_${text}`;
     if (cachedAudio.has(cacheKey)) {
-        return Promise.resolve(cachedAudio.get(cacheKey));
+        const cachedUrl = cachedAudio.get(cacheKey);
+        $('#result').show();
+        $('#audio').attr('src', cachedUrl);
+        $('#download').attr('href', cachedUrl);
+        
+        highlightHistoryItem(cachedUrl);
+        showMessage('该文本已经生成过语音了哦~', 'info');
+        return Promise.resolve(cachedUrl);
     }
     $('#loading').show();
     $('#error').hide();
@@ -166,7 +189,7 @@ function makeRequest(url, isPreview, text, isDenoApi) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-    fetch(url, { 
+    return fetch(url, { 
         signal: controller.signal,
         headers: {
             'Accept': 'audio/mpeg'
@@ -175,7 +198,10 @@ function makeRequest(url, isPreview, text, isDenoApi) {
     .then(response => {
         clearTimeout(timeoutId);
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            throw new Error(`服务器响应错误: ${response.status}`);
+        }
+        if (!response.headers.get('content-type')?.includes('audio/')) {
+            throw new Error('响应类型错误');
         }
         return response.blob();
     })
@@ -212,16 +238,24 @@ function makeRequest(url, isPreview, text, isDenoApi) {
 }
 
 function showError(message) {
-    const errorDiv = $('#error');
-    errorDiv.text(message).show();
+    showMessage(message, 'danger');
 }
 
 function addHistoryItem(timestamp, text, audioURL) {
-    const MAX_HISTORY = 10;
+    const MAX_HISTORY = 50;
     const historyItems = $('#historyItems');
+    
     if (historyItems.children().length >= MAX_HISTORY) {
         const oldestItem = historyItems.children().last();
         const oldUrl = oldestItem.find('button').first().attr('onclick').match(/'([^']+)'/)[1];
+        
+        for (let [key, value] of cachedAudio.entries()) {
+            if (value === oldUrl) {
+                cachedAudio.delete(key);
+                break;
+            }
+        }
+        
         URL.revokeObjectURL(oldUrl);
         oldestItem.remove();
     }
@@ -231,10 +265,10 @@ function addHistoryItem(timestamp, text, audioURL) {
                 <span class="text-truncate" style="max-width: 60%;">${timestamp} - ${text}</span>
                 <div class="btn-group">
                     <button class="btn btn-sm btn-outline-primary" onclick="playAudio('${audioURL}')">
-                        <i class="fas fa-play"></i> 播放
+                        播放
                     </button>
                     <button class="btn btn-sm btn-outline-success" onclick="downloadAudio('${audioURL}')">
-                        <i class="fas fa-download"></i> 下载
+                        下载
                     </button>
                 </div>
             </div>
@@ -247,9 +281,15 @@ function addHistoryItem(timestamp, text, audioURL) {
 
 function playAudio(audioURL) {
     const audioElement = $('#audio')[0];
+    audioElement.onerror = function() {
+        showError('音频播放失败，请重试');
+    };
     audioElement.src = audioURL;
     audioElement.load();
-    audioElement.play();
+    audioElement.play().catch(error => {
+        console.error('播放失败:', error);
+        showError('音频播放失败，请重试');
+    });
 }
 
 function downloadAudio(audioURL) {
@@ -264,6 +304,12 @@ function downloadAudio(audioURL) {
 function clearHistory() {
     $('#historyItems .history-item').each(function() {
         const audioURL = $(this).find('button').first().attr('onclick').match(/'([^']+)'/)[1];
+        
+        for (let [key, value] of cachedAudio.entries()) {
+            if (value === audioURL) {
+                cachedAudio.delete(key);
+            }
+        }
         URL.revokeObjectURL(audioURL);
     });
     
@@ -276,4 +322,65 @@ function initializeAudioPlayer() {
     audio.style.borderRadius = '12px';
     audio.style.width = '100%';
     audio.style.marginTop = '20px';
+}
+
+function showMessage(message, type = 'error') {
+    const errorDiv = $('#error');
+    errorDiv.removeClass('alert-danger alert-warning alert-info')
+           .addClass(`alert-${type}`)
+           .text(message)
+           .show();
+    
+    setTimeout(() => {
+        errorDiv.fadeOut();
+    }, 3000);
+}
+
+// 全局变量用于存储当前高亮的定时器
+let currentHighlightTimer;
+
+function highlightHistoryItem(audioURL) {
+    // 清除当前正在进行的高亮和定时器
+    if (currentHighlightTimer) {
+        clearTimeout(currentHighlightTimer);
+    }
+    $('.history-item').removeClass('highlight-history');
+    
+    // 找到匹配的历史记录
+    const historyItem = $('#historyItems .history-item').filter(function() {
+        const onclickAttr = $(this).find('button').first().attr('onclick');
+        return onclickAttr && onclickAttr.includes(audioURL);
+    });
+    
+    if (historyItem.length) {
+        try {
+            // 强制重新触发动画
+            void historyItem[0].offsetHeight;
+            
+            // 添加高亮类
+            historyItem.addClass('highlight-history');
+            
+            // 滚动到高亮项（添加错误处理）
+            try {
+                historyItem[0].scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'center'
+                });
+            } catch (scrollError) {
+                console.warn('Smooth scroll failed, falling back to default:', scrollError);
+                historyItem[0].scrollIntoView();
+            }
+            
+            // 设置新的定时器并保存引用
+            currentHighlightTimer = setTimeout(() => {
+                historyItem.removeClass('highlight-history');
+                currentHighlightTimer = null;
+            }, 3000);
+            
+        } catch (error) {
+            console.error('Highlight animation failed:', error);
+            // 确保在出错时移除高亮状态
+            historyItem.removeClass('highlight-history');
+        }
+    }
 }
