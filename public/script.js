@@ -148,34 +148,24 @@ function canMakeRequest() {
 }
 
 function buildRequestUrl(isPreview = false) {
-    try {
-        const api = $('#api').val();
-        const text = isPreview ? $('#text').val().substring(0, 20) : $('#text').val();
-        const voice = $('#speaker').val();
-        const rate = $('#rate').val();
-        const pitch = $('#pitch').val();
-        
-        const baseUrl = API_ENDPOINTS[api];
-        if (!baseUrl) {
-            throw new Error('无效的 API 选择');
-        }
+    const api = $('#api').val();
+    const text = $('#text').val().trim();
+    const voice = $('#speaker').val();
+    const rate = $('#rate').val();
+    const pitch = $('#pitch').val();
+    
+    const finalText = isPreview ? text.substring(0, 20) : text;
+    
+    const params = new URLSearchParams({
+        t: finalText,
+        v: voice,
+        r: rate,
+        p: pitch,
+        o: 'audio-24khz-48kbitrate-mono-mp3'
+    });
 
-        const params = new URLSearchParams({
-            t: text,
-            v: voice,
-            r: rate,
-            p: pitch,
-            o: 'audio-24khz-48kbitrate-mono-mp3'
-        });
-
-        const url = `${baseUrl}?${params.toString()}`;
-        console.log('构建的请求 URL:', url);
-        
-        return url;
-    } catch (error) {
-        console.error('构建请求 URL 失败:', error);
-        throw new Error('构建请求 URL 失败');
-    }
+    const baseUrl = API_ENDPOINTS[api];
+    return `${baseUrl}?${params.toString()}`;
 }
 
 async function generateVoice(isPreview = false) {
@@ -187,6 +177,7 @@ async function generateVoice(isPreview = false) {
         }
 
         const url = buildRequestUrl(isPreview);
+        console.log('请求URL:', url);
         
         $('#loading').show();
         $('#error').hide();
@@ -196,12 +187,13 @@ async function generateVoice(isPreview = false) {
         const response = await fetch(url, {
             method: 'GET',
             headers: {
-                'Accept': 'audio/mpeg, audio/*'
+                'Accept': 'audio/mpeg, */*'
             }
         });
 
+        console.log('响应头:', Object.fromEntries(response.headers.entries()));
+
         if (!response.ok) {
-            // 尝试解析错误响应
             const contentType = response.headers.get('content-type');
             if (contentType && contentType.includes('application/json')) {
                 const errorData = await response.json();
@@ -210,44 +202,61 @@ async function generateVoice(isPreview = false) {
             throw new Error(`服务器响应错误: ${response.status}`);
         }
 
-        // 获取响应数据（只读取一次）
-        const arrayBuffer = await response.arrayBuffer();
-        const contentType = response.headers.get('content-type') || 'audio/mpeg';
-        
-        // 创建音频 Blob
-        const audioBlob = new Blob([arrayBuffer], { type: contentType });
-        const audioUrl = URL.createObjectURL(audioBlob);
+        const buffer = await response.arrayBuffer();
+        console.log('接收到的数据大小:', buffer.byteLength);
 
-        // 验证音频是否可播放
-        try {
-            await validateAudio(audioUrl);
-        } catch (error) {
-            URL.revokeObjectURL(audioUrl);
-            throw new Error('无效的音频数据');
+        if (buffer.byteLength === 0) {
+            throw new Error('接收到的音频数据为空');
         }
 
-        // 更新音频播放器
+        const audioBlob = new Blob([buffer], { type: 'audio/mpeg' });
+        const audioUrl = URL.createObjectURL(audioBlob);
+
+        const audio = new Audio();
+        
+        await new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                reject(new Error('音频加载超时'));
+            }, 5000);
+
+            audio.onloadeddata = () => {
+                clearTimeout(timeout);
+                resolve();
+            };
+
+            audio.onerror = () => {
+                clearTimeout(timeout);
+                reject(new Error('音频格式无效'));
+            };
+
+            audio.src = audioUrl;
+        });
+
         $('#result').show();
         $('#audio').attr('src', audioUrl);
         $('#download').attr('href', audioUrl);
+        
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        $('#download').attr('download', `tts_${timestamp}.mp3`);
 
-        // 如果不是预览，添加到历史记录
         if (!isPreview) {
-            const timestamp = new Date().toLocaleTimeString();
+            const timeStr = new Date().toLocaleTimeString();
             const shortenedText = text.length > 20 ? text.substring(0, 20) + '...' : text;
-            addHistoryItem(timestamp, shortenedText, audioUrl);
+            addHistoryItem(timeStr, shortenedText, audioUrl);
         }
 
     } catch (error) {
         console.error('生成语音失败:', error);
         showError(`生成失败：${error.message}`);
+        if (window.lastAudioUrl) {
+            URL.revokeObjectURL(window.lastAudioUrl);
+        }
     } finally {
         $('#loading').hide();
         $('#generateButton, #previewButton').prop('disabled', false);
     }
 }
 
-// 添加音频验证函数
 function validateAudio(audioUrl) {
     return new Promise((resolve, reject) => {
         const audio = new Audio();
@@ -277,7 +286,6 @@ function validateAudio(audioUrl) {
     });
 }
 
-// 添加历史记录项的函数
 function addHistoryItem(timestamp, text, audioUrl) {
     const historyItem = $(`
         <div class="history-item mb-2 p-2 border rounded">
@@ -299,11 +307,10 @@ function addHistoryItem(timestamp, text, audioUrl) {
     $('#historyItems').prepend(historyItem);
 }
 
-// 添加音频资源管理
 const audioCache = new Map();
 
 function cleanupAudioCache() {
-    const maxCacheSize = 50; // 最大缓存数量
+    const maxCacheSize = 50;
     if (audioCache.size > maxCacheSize) {
         const oldestUrl = audioCache.keys().next().value;
         URL.revokeObjectURL(oldestUrl);
@@ -311,7 +318,6 @@ function cleanupAudioCache() {
     }
 }
 
-// 修改播放历史记录中的音频的函数
 function playAudio(audioUrl) {
     const audio = $('#audio')[0];
     audio.src = audioUrl;
@@ -321,7 +327,6 @@ function playAudio(audioUrl) {
     });
 }
 
-// 在页面卸载时清理音频资源
 window.addEventListener('beforeunload', () => {
     audioCache.forEach(url => URL.revokeObjectURL(url));
     audioCache.clear();
@@ -450,17 +455,14 @@ function showMessage(message, type = 'error') {
     }, 3000);
 }
 
-// 全局变量用于存储当前高亮的定时器
 let currentHighlightTimer;
 
 function highlightHistoryItem(audioURL) {
-    // 清除当前正在进行的高亮和定时器
     if (currentHighlightTimer) {
         clearTimeout(currentHighlightTimer);
     }
     $('.history-item').removeClass('highlight-history');
     
-    // 找到匹配的历史记录
     const historyItem = $('#historyItems .history-item').filter(function() {
         const onclickAttr = $(this).find('button').first().attr('onclick');
         return onclickAttr && onclickAttr.includes(audioURL);
@@ -468,13 +470,10 @@ function highlightHistoryItem(audioURL) {
     
     if (historyItem.length) {
         try {
-            // 强制重新触发动画
             void historyItem[0].offsetHeight;
             
-            // 添加高亮类
             historyItem.addClass('highlight-history');
             
-            // 滚动到高亮项（添加错误处理）
             try {
                 historyItem[0].scrollIntoView({ 
                     behavior: 'smooth', 
@@ -485,7 +484,6 @@ function highlightHistoryItem(audioURL) {
                 historyItem[0].scrollIntoView();
             }
             
-            // 设置新的定时器并保存引用
             currentHighlightTimer = setTimeout(() => {
                 historyItem.removeClass('highlight-history');
                 currentHighlightTimer = null;
@@ -493,13 +491,12 @@ function highlightHistoryItem(audioURL) {
             
         } catch (error) {
             console.error('Highlight animation failed:', error);
-            // 确保在出错时移除高亮状态
             historyItem.removeClass('highlight-history');
         }
     }
 }
 
-const MAX_CACHE_SIZE = 50; // 最大缓存数量
+const MAX_CACHE_SIZE = 50;
 function cleanupCache() {
     if (cachedAudio.size > MAX_CACHE_SIZE) {
         const oldestKey = cachedAudio.keys().next().value;
@@ -597,7 +594,6 @@ function debugSpeakersConfig() {
     console.groupEnd();
 }
 
-// 添加调试函数
 function debugResponse(response) {
     console.group('响应调试信息');
     console.log('状态:', response.status);
@@ -606,7 +602,6 @@ function debugResponse(response) {
     console.groupEnd();
 }
 
-// 添加重试机制
 async function fetchWithRetry(url, options, retries = 3) {
     for (let i = 0; i < retries; i++) {
         try {
@@ -619,7 +614,6 @@ async function fetchWithRetry(url, options, retries = 3) {
             if (i === retries - 1) throw error;
             console.warn(`请求出错，尝试重试 ${i + 1}/${retries}`, error);
         }
-        // 延迟重试
         await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
     }
     throw new Error('请求失败，已达到最大重试次数');

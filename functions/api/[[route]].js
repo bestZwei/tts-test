@@ -72,26 +72,42 @@ async function handleTTS(requestUrl) {
         const rate = Number(requestUrl.searchParams.get("r")) || 0;
         const pitch = Number(requestUrl.searchParams.get("p")) || 0;
         const outputFormat = requestUrl.searchParams.get("o") || "audio-24khz-48kbitrate-mono-mp3";
-        const download = requestUrl.searchParams.get("d") === "true";
 
-        // 获取音频数据
-        const audioBuffer = await getVoice(text, voiceName, rate, pitch, outputFormat);
+        console.log('TTS请求参数:', { text, voiceName, rate, pitch, outputFormat }); // 调试日志
 
-        // 设置正确的响应头
-        const headers = {
-            "Content-Type": "audio/mpeg",
-            "Content-Length": audioBuffer.length,
-            ...makeCORSHeaders()
-        };
-
-        if (download) {
-            headers["Content-Disposition"] = `attachment; filename="speech_${Date.now()}.mp3"`;
+        if (!text) {
+            return new Response(JSON.stringify({ error: "文本不能为空" }), {
+                status: 400,
+                headers: {
+                    "Content-Type": "application/json",
+                    ...makeCORSHeaders()
+                }
+            });
         }
 
-        return new Response(audioBuffer, { headers });
+        const audioBuffer = await getVoice(text, voiceName, rate, pitch, outputFormat);
+        
+        // 验证音频数据
+        if (!audioBuffer || audioBuffer.length === 0) {
+            throw new Error("生成的音频数据为空");
+        }
+
+        console.log('生成的音频大小:', audioBuffer.length); // 调试日志
+
+        return new Response(audioBuffer, {
+            headers: {
+                "Content-Type": "audio/mpeg",
+                "Content-Length": audioBuffer.length,
+                "Cache-Control": "no-cache",
+                ...makeCORSHeaders()
+            }
+        });
     } catch (error) {
         console.error('TTS处理错误:', error);
-        return new Response(JSON.stringify({ error: error.message }), {
+        return new Response(JSON.stringify({ 
+            error: error.message || "生成语音失败",
+            details: error.stack
+        }), {
             status: 500,
             headers: {
                 "Content-Type": "application/json",
@@ -158,42 +174,43 @@ function handleDefault(requestUrl) {
 function makeCORSHeaders() {
     return {
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, HEAD, POST, OPTIONS",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization",
         "Access-Control-Max-Age": "86400"
     };
 }
 
 async function getVoice(text, voiceName, rate, pitch, outputFormat) {
-    await refreshEndpoint();
-    const url = `https://${endpoint.r}.tts.speech.microsoft.com/cognitiveservices/v1`;
-    const headers = {
-        "Authorization": endpoint.t,
-        "Content-Type": "application/ssml+xml",
-        "X-Microsoft-OutputFormat": outputFormat,
-        "User-Agent": "okhttp/4.5.0"
-    };
+    try {
+        // 确保 endpoint 是有效的
+        if (!endpoint || Date.now() >= expiredAt) {
+            await refreshEndpoint();
+        }
 
-    // 构建 SSML 请求体
-    const ssml = `
-    <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='${voiceName.split('-')[0]}'>
-        <voice name='${voiceName}'>
-            <prosody rate='${rate}' pitch='${pitch}'>${text}</prosody>
-        </voice>
-    </speak>`;
+        // 构建 SSML
+        const ssml = buildSSML(text, voiceName, rate, pitch);
+        console.log('SSML:', ssml); // 调试日志
 
-    const response = await fetch(url, {
-        method: "POST",
-        headers: headers,
-        body: ssml
-    });
+        const response = await fetch(endpoint, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/ssml+xml",
+                "X-Microsoft-OutputFormat": outputFormat,
+                "Authorization": `Bearer ${await getToken()}`,
+                "User-Agent": "TTS-Client"
+            },
+            body: ssml
+        });
 
-    if (!response.ok) {
-        throw new Error(`TTS 请求失败，状态码：${response.status}`);
+        if (!response.ok) {
+            throw new Error(`语音服务响应错误: ${response.status}`);
+        }
+
+        return new Uint8Array(await response.arrayBuffer());
+    } catch (error) {
+        console.error('获取语音失败:', error);
+        throw error;
     }
-
-    const audioBuffer = await response.arrayBuffer();
-    return audioBuffer;
 }
 
 async function refreshEndpoint() {
