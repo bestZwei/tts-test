@@ -1,4 +1,4 @@
-let apiConfig;
+let apiConfig = null;
 let lastRequestTime = 0;
 let currentAudioURL = null;
 
@@ -13,71 +13,62 @@ const API_CONFIG = {
     }
 };
 
-function loadSpeakers() {
-    const maxRetries = 3;
-    let retryCount = 0;
-
-    function tryLoadSpeakers() {
-        return $.ajax({
-            url: 'speakers.json',
-            method: 'GET',
-            dataType: 'json',
-            success: function(data) {
-                if (!data || !data['workers-api'] || !data['workers-api'].speakers) {
-                    console.error('speakers.json 格式错误');
-                    showError('加载讲述者失败，数据格式错误');
-                    return;
-                }
-                
-                apiConfig = data;
-                updateSpeakerOptions('workers-api');
-                console.log('成功加载讲述者列表');
-            },
-            error: function(jqXHR, textStatus, errorThrown) {
-                console.error(`加载讲述者失败：${textStatus} - ${errorThrown}`);
-                
-                if (retryCount < maxRetries) {
-                    retryCount++;
-                    console.log(`尝试第 ${retryCount} 次重新加载`);
-                    setTimeout(tryLoadSpeakers, 1000 * retryCount);
-                } else {
-                    showError('加载讲述者失败，请刷新页面重试');
-                }
-            }
-        });
+async function loadSpeakers() {
+    try {
+        const response = await fetch('speakers.json');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        
+        apiConfig = data;
+        console.log('成功加载讲述人配置:', apiConfig);
+        
+        const defaultApi = 'workers-api';
+        $('#api').val(defaultApi);
+        updateSpeakerOptions(defaultApi);
+        
+        return data;
+    } catch (error) {
+        console.error('加载讲述人失败:', error);
+        showError('加载讲述人失败，请刷新页面重试');
+        throw error;
     }
-
-    return tryLoadSpeakers();
 }
 
 function updateSpeakerOptions(apiName) {
+    console.log('正在更新讲述人选项，API:', apiName);
     const speakerSelect = $('#speaker');
     speakerSelect.empty();
     
     try {
         if (!apiConfig || !apiConfig[apiName] || !apiConfig[apiName].speakers) {
-            throw new Error('讲述人配置数据无效');
+            console.error('无效的API配置:', apiConfig);
+            throw new Error('讲述人配置无效');
         }
 
         const speakers = apiConfig[apiName].speakers;
-        
+        console.log('获取到讲述人列表:', speakers);
+
         if (Object.keys(speakers).length === 0) {
             speakerSelect.append(new Option('暂无可用讲述人', ''));
             return;
         }
 
-        const sortedSpeakers = Object.entries(speakers).sort((a, b) => {
-            return a[1].localeCompare(b[1], 'zh-CN');
-        });
+        const sortedSpeakers = Object.entries(speakers)
+            .sort((a, b) => a[1].localeCompare(b[1], 'zh-CN'));
 
         sortedSpeakers.forEach(([key, value]) => {
-            speakerSelect.append(new Option(value, key));
+            const option = new Option(value, key);
+            speakerSelect.append(option);
         });
 
         const defaultSpeaker = sortedSpeakers.find(([key]) => key.startsWith('zh-CN'));
         if (defaultSpeaker) {
             speakerSelect.val(defaultSpeaker[0]);
         }
+
+        console.log('讲述人选项更新完成');
 
     } catch (error) {
         console.error('更新讲述人选项失败:', error);
@@ -115,18 +106,9 @@ $(document).ready(function() {
     $('[data-toggle="tooltip"]').tooltip();
 
     $('#api').on('change', function() {
-        const apiName = $(this).val();
-        updateSpeakerOptions(apiName);
-        
-        $('#rate, #pitch').val(0);
-        updateSliderLabel('rate', 'rateValue');
-        updateSliderLabel('pitch', 'pitchValue');
-        
-        const tips = {
-            'workers-api': '使用 Workers API，每天限制 100000 次请求',
-            'deno-api': '使用 Deno API，基于 Lobe-TTS，暂不支持语速语调调整'
-        };
-        $('#apiTips').text(tips[apiName] || '');
+        const selectedApi = $(this).val();
+        console.log('选择的API:', selectedApi);
+        updateSpeakerOptions(selectedApi);
     });
 
     updateSliderLabel('rate', 'rateValue');
@@ -296,7 +278,9 @@ function makeRequest(url, isPreview, text, isDenoApi) {
 }
 
 function showError(message) {
-    showMessage(message, 'danger');
+    const errorDiv = $('#error');
+    errorDiv.text(message).show();
+    setTimeout(() => errorDiv.fadeOut(), 3000);
 }
 
 function addHistoryItem(timestamp, text, audioURL) {
