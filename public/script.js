@@ -2,24 +2,22 @@ let apiConfig = null;
 let lastRequestTime = 0;
 let currentAudioURL = null;
 
-const API_CONFIG = {
-    'workers-api': {
-        url: '/api/tts',
-        speakers: speakers['workers-api']
-    },
-    'deno-api': {
-        url: 'https://deno-tts.api.zwei.de.eu.org/tts',
-        speakers: speakers['deno-api']
-    }
+const API_ENDPOINTS = {
+    'workers-api': '/api/tts',
+    'deno-api': 'https://deno-tts.api.zwei.de.eu.org/tts'
 };
 
 async function loadSpeakers() {
     try {
-        const response = await fetch('speakers.json');
+        const response = await fetch('/speakers.json');
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
+        
+        if (!data || !data['workers-api'] || !data['workers-api'].speakers) {
+            throw new Error('无效的讲述人配置数据');
+        }
         
         apiConfig = data;
         console.log('成功加载讲述人配置:', apiConfig);
@@ -28,27 +26,28 @@ async function loadSpeakers() {
         $('#api').val(defaultApi);
         updateSpeakerOptions(defaultApi);
         
-        return data;
     } catch (error) {
         console.error('加载讲述人失败:', error);
         showError('加载讲述人失败，请刷新页面重试');
-        throw error;
+        $('#speaker').empty().append(new Option('加载失败，请刷新重试', ''));
     }
 }
 
 function updateSpeakerOptions(apiName) {
-    console.log('正在更新讲述人选项，API:', apiName);
+    console.group('更新讲述人选项');
+    console.log('API名称:', apiName);
+    console.log('当前配置:', apiConfig);
+    
     const speakerSelect = $('#speaker');
     speakerSelect.empty();
     
     try {
         if (!apiConfig || !apiConfig[apiName] || !apiConfig[apiName].speakers) {
-            console.error('无效的API配置:', apiConfig);
-            throw new Error('讲述人配置无效');
+            throw new Error(`无效的API配置: ${apiName}`);
         }
 
         const speakers = apiConfig[apiName].speakers;
-        console.log('获取到讲述人列表:', speakers);
+        console.log('可用讲述人:', speakers);
 
         if (Object.keys(speakers).length === 0) {
             speakerSelect.append(new Option('暂无可用讲述人', ''));
@@ -59,8 +58,7 @@ function updateSpeakerOptions(apiName) {
             .sort((a, b) => a[1].localeCompare(b[1], 'zh-CN'));
 
         sortedSpeakers.forEach(([key, value]) => {
-            const option = new Option(value, key);
-            speakerSelect.append(option);
+            speakerSelect.append(new Option(value, key));
         });
 
         const defaultSpeaker = sortedSpeakers.find(([key]) => key.startsWith('zh-CN'));
@@ -68,12 +66,13 @@ function updateSpeakerOptions(apiName) {
             speakerSelect.val(defaultSpeaker[0]);
         }
 
-        console.log('讲述人选项更新完成');
-
+        console.log('更新完成，当前选项数:', $('#speaker option').length);
     } catch (error) {
-        console.error('更新讲述人选项失败:', error);
+        console.error('更新失败:', error);
         speakerSelect.append(new Option('加载失败，请刷新重试', ''));
     }
+    
+    console.groupEnd();
 }
 
 function updateSliderLabel(sliderId, labelId) {
@@ -89,12 +88,15 @@ function updateSliderLabel(sliderId, labelId) {
 $(document).ready(function() {
     $('#speaker').append(new Option('正在加载讲述人...', ''));
     
-    fetch('speakers.json', { method: 'HEAD' })
+    fetch('/speakers.json', { method: 'HEAD' })
         .then(response => {
             if (!response.ok) {
                 throw new Error('speakers.json 文件不存在');
             }
             return loadSpeakers();
+        })
+        .then(() => {
+            debugSpeakersConfig();
         })
         .catch(error => {
             console.error('检查 speakers.json 失败:', error);
@@ -147,7 +149,7 @@ function canMakeRequest() {
 
 function generateVoice(isPreview) {
     const apiName = $('#api').val();
-    const apiUrl = API_CONFIG[apiName].url;
+    const apiUrl = API_ENDPOINTS[apiName];
     const speaker = $('#speaker').val();
     const text = $('#text').val().trim();
     const maxLength = 3600;
@@ -514,4 +516,13 @@ async function makeRequest(url, retries = 3) {
         $('#generateButton').prop('disabled', false);
         $('#previewButton').prop('disabled', false);
     });
+}
+
+function debugSpeakersConfig() {
+    console.group('讲述人配置调试信息');
+    console.log('API Config:', apiConfig);
+    console.log('Speaker Select Element:', $('#speaker')[0]);
+    console.log('Speaker Options:', $('#speaker option').length);
+    console.log('Current API:', $('#api').val());
+    console.groupEnd();
 }
