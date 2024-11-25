@@ -147,53 +147,87 @@ function canMakeRequest() {
     return false;
 }
 
-function generateVoice(isPreview) {
-    const apiName = $('#api').val();
-    const apiUrl = API_ENDPOINTS[apiName];
-    const speaker = $('#speaker').val();
-    const text = $('#text').val().trim();
-    const maxLength = 3600;
-    
-    if (!text) {
-        showError('请输入要转换的文本');
-        return;
-    }
-    
-    if (text.length > maxLength) {
-        showError(`文本长度不能超过${maxLength}个字符`);
-        return;
-    }
-
-    const previewText = isPreview ? text.substring(0, 20) : text;
-    let rate = $('#rate').val();
-    let pitch = $('#pitch').val();
-
-    if (apiName === 'deno-api') {
-        const rateConverted = (parseFloat(rate) / 100).toFixed(2);
-        const pitchConverted = (parseFloat(pitch) / 100).toFixed(2);
+function buildRequestUrl(isPreview = false) {
+    try {
+        const api = $('#api').val();
+        const text = isPreview ? $('#text').val().substring(0, 20) : $('#text').val();
+        const voice = $('#speaker').val();
+        const rate = $('#rate').val();
+        const pitch = $('#pitch').val();
         
+        const baseUrl = API_ENDPOINTS[api];
+        if (!baseUrl) {
+            throw new Error('无效的 API 选择');
+        }
+
         const params = new URLSearchParams({
-            text: previewText,
-            voice: speaker,
-            rate: rateConverted,
-            pitch: pitchConverted
+            t: text,
+            v: voice,
+            r: rate,
+            p: pitch,
+            o: 'audio-24khz-48kbitrate-mono-mp3'
         });
+
+        const url = `${baseUrl}?${params.toString()}`;
+        console.log('构建的请求 URL:', url);
         
-        if (!isPreview) {
-            params.append('download', 'true');
+        return url;
+    } catch (error) {
+        console.error('构建请求 URL 失败:', error);
+        throw new Error('构建请求 URL 失败');
+    }
+}
+
+async function generateVoice(isPreview = false) {
+    try {
+        const text = $('#text').val().trim();
+        if (!text) {
+            showError('请输入要转换的文本');
+            return;
         }
+
+        const url = buildRequestUrl(isPreview);
+        const api = $('#api').val();
         
-        const url = `${apiUrl}?${params.toString()}`;
-        
-        makeRequest(url, isPreview, text, true);
-    } else {
-        let url = `${apiUrl}?t=${encodeURIComponent(previewText)}&v=${encodeURIComponent(speaker)}`;
-        url += `&r=${encodeURIComponent(rate)}&p=${encodeURIComponent(pitch)}`;
-        if (!isPreview) {
-            url += '&d=true';
+        $('#loading').show();
+        $('#error').hide();
+        $('#result').hide();
+        $('#generateButton, #previewButton').prop('disabled', true);
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Accept': 'audio/mpeg'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`服务器响应错误: ${response.status}`);
         }
+
+        const blob = await response.blob();
+        if (!blob.type.includes('audio/')) {
+            throw new Error('返回的不是音频文件');
+        }
+
+        const audioUrl = URL.createObjectURL(blob);
         
-        makeRequest(url, isPreview, text, false);
+        $('#result').show();
+        $('#audio').attr('src', audioUrl);
+        $('#download').attr('href', audioUrl);
+
+        if (!isPreview) {
+            const timestamp = new Date().toLocaleTimeString();
+            const shortenedText = text.length > 20 ? text.substring(0, 20) + '...' : text;
+            addHistoryItem(timestamp, shortenedText, audioUrl);
+        }
+
+    } catch (error) {
+        console.error('生成语音失败:', error);
+        showError(`生成失败：${error.message}`);
+    } finally {
+        $('#loading').hide();
+        $('#generateButton, #previewButton').prop('disabled', false);
     }
 }
 
